@@ -22,9 +22,7 @@ let main argv =
         |> List.filter (fun (_, url) -> url.StartsWith("javascript:search"))
         |> List.map (fun (name, _) -> name)
 
-    for searchResult in searchResults do
-        printfn "%s" searchResult
-
-
+    let lastPage =
+        (searchResults).[searchResults.Length - 1]
 
     0
