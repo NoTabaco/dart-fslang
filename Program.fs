@@ -6,6 +6,9 @@ type CsvType = CsvProvider<"Name,Cir,CirLink", Separators=",", HasHeaders=true>
 
 [<EntryPoint>]
 let main argv =
+    let now =
+        sprintf "%i.%i.%i" (System.DateTime.Now).Year (System.DateTime.Now).Month (System.DateTime.Now).Day
+
     let pageUrl =
         "https://dart.fss.or.kr/dsac001/mainY.do"
 
@@ -41,7 +44,7 @@ let main argv =
             Http.RequestString(
                 reqUrl,
                 body =
-                    FormValues [ "selectDate", "2021.10.15"
+                    FormValues [ "selectDate", now
                                  "currentPage", page |> string
                                  "pageGrouping", "Y"
                                  "mdayCnt", "0" ]
