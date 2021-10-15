@@ -2,6 +2,8 @@
 
 open FSharp.Data
 
+type CsvType = CsvProvider<"Name,Cir,CirLink", Separators=",", HasHeaders=true>
+
 [<EntryPoint>]
 let main argv =
     let url =
@@ -65,6 +67,15 @@ let main argv =
                 |> List.toArray
                 |> Array.append companyDataArr
 
-            printfn "%A" companyDataArr
+    let csv = CsvType.GetSample().Truncate(0)
+    let mutable rows = []
+
+    for (name, cir, cirLink) in companyDataArr do
+        rows <-
+            [ CsvType.Row(name, cir, cirLink) ]
+            |> List.append rows
+
+    let csvFile = csv.Append rows
+    csvFile.Save("./company.csv")
 
     0
