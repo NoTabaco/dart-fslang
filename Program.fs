@@ -13,7 +13,7 @@ let main argv =
 
     let results = HtmlDocument.Load(url)
 
-    (* let pageLinks =
+    let pageLinks =
         results.Descendants [ "a" ]
         |> Seq.choose
             (fun x ->
@@ -27,7 +27,20 @@ let main argv =
         |> List.map (fun (name, _) -> name)
 
     let lastPage =
-        (searchResults).[searchResults.Length - 1] *)
+        (searchResults).[searchResults.Length - 1]
+
+
+    let req =
+        Http.RequestString(
+            "https://dart.fss.or.kr/dsac001/search.ax",
+            body =
+                FormValues [ "selectDate", "2021.10.14"
+                             "currentPage", "2"
+                             "pageGrouping", "Y"
+                             "mdayCnt", "0" ]
+        )
+
+    printfn "%s" req
 
     let datas =
         results.Descendants [ "tr" ]
