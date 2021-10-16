@@ -8,11 +8,17 @@ type CsvType = CsvProvider<"Name,Cir,CirLink", Separators=",", HasHeaders=false>
 let main argv =
     let now =
         sprintf "%i.%i.%i" (System.DateTime.Now).Year (System.DateTime.Now).Month (System.DateTime.Now).Day
+    // Saturday, Sunday
+    let mdayCnt =
+        match (System.DateTime.Now).DayOfWeek with
+        | System.DayOfWeek.Saturday -> 1
+        | System.DayOfWeek.Sunday -> 2
+        | _ -> 0
 
     let marketDatas =
-        [ "https://dart.fss.or.kr/dsac001/mainY.do", "Y", "Securities Market"
-          "https://dart.fss.or.kr/dsac001/mainK.do", "K", "KOSDAQ Market"
-          "https://dart.fss.or.kr/dsac001/mainN.do", "N", "KONEX Market" ]
+        [ "https://dart.fss.or.kr/dsac001/mainY.do", "Y", "Securities Market", mdayCnt
+          "https://dart.fss.or.kr/dsac001/mainK.do", "K", "KOSDAQ Market", mdayCnt
+          "https://dart.fss.or.kr/dsac001/mainN.do", "N", "KONEX Market", mdayCnt ]
 
     let reqUrl =
         "https://dart.fss.or.kr/dsac001/search.ax"
@@ -20,7 +26,7 @@ let main argv =
     let prefixURL = "https://dart.fss.or.kr"
     let mutable rows = []
 
-    for (pageUrl, pageGroup, marketName) in marketDatas do
+    for (pageUrl, pageGroup, marketName, pastDays) in marketDatas do
         let results = HtmlDocument.Load(pageUrl)
 
         let pageLinks =
@@ -56,7 +62,7 @@ let main argv =
                         FormValues [ "selectDate", now
                                      "currentPage", page |> string
                                      "pageGrouping", pageGroup
-                                     "mdayCnt", "1" ]
+                                     "mdayCnt", pastDays |> string ]
                 )
 
             let reqHtml = HtmlDocument.Parse(req)
