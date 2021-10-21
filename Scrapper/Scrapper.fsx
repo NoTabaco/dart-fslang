@@ -15,9 +15,21 @@ let scrape =
         | _ -> 0
 
     let marketDatas =
-        [ "https://dart.fss.or.kr/dsac001/mainY.do", "Y", "Securities Market", mdayCnt
-          "https://dart.fss.or.kr/dsac001/mainK.do", "K", "KOSDAQ Market", mdayCnt
-          "https://dart.fss.or.kr/dsac001/mainN.do", "N", "KONEX Market", mdayCnt ]
+        [ "https://dart.fss.or.kr/dsac001/mainY.do?mdayCnt="
+          + (mdayCnt |> string),
+          "Y",
+          "Securities Market",
+          mdayCnt
+          "https://dart.fss.or.kr/dsac001/mainK.do?mdayCnt="
+          + (mdayCnt |> string),
+          "K",
+          "KOSDAQ Market",
+          mdayCnt
+          "https://dart.fss.or.kr/dsac001/mainN.do?mdayCnt="
+          + (mdayCnt |> string),
+          "N",
+          "KONEX Market",
+          mdayCnt ]
 
     let reqUrl =
         "https://dart.fss.or.kr/dsac001/search.ax"
@@ -47,8 +59,15 @@ let scrape =
             |> List.toArray
             |> System.String
 
+        let nowHeader =
+            sprintf
+                "%i.%i.%i"
+                (System.DateTime.Now).Year
+                (System.DateTime.Now).Month
+                ((System.DateTime.Now).Day - pastDays)
+
         rows <-
-            [ CsvType.Row(marketName, now, allResult) ]
+            [ CsvType.Row(marketName, nowHeader, allResult) ]
             |> List.append rows
 
         for page in 1 .. lastPage do
@@ -112,5 +131,5 @@ let scrape =
     printfn "Making Csv File..."
     let csv = CsvType.GetSample().Truncate(0)
     let csvFile = csv.Append rows
-    csvFile.Save("../company.csv")
+    csvFile.Save("./company.csv")
     printfn "Completed !"
