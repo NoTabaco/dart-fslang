@@ -1,7 +1,10 @@
 module TickersScrapper
 
 #r "nuget: FSharp.Data, 4.2.4"
+
 open FSharp.Data
+open System.Text.RegularExpressions
+
 type CsvType = CsvProvider<"Name,NOM Link,CIR Link,QR Link,Ticker", Separators=",", HasHeaders=true>
 
 let scrape =
@@ -46,10 +49,37 @@ let scrape =
         let mutable qrLink = ""
         let mutable checkData = [| false; false; false |]
 
-        let companyName =
-            doc.CssSelect("a[title$='기업개황 새창']")
-            |> List.map (fun a -> a.InnerText().Trim())
+        let companyNameList =
+            doc.CssSelect("a[onclick^='openCorpInfoNew']")
+            |> List.map (fun a -> a.InnerText().Trim(), a.AttributeValue("onclick"))
             |> List.item 0
+
+        let _, formValueString = companyNameList
+
+        let formValueList =
+            formValueString.Split [| '(' |]
+            |> Array.toList
+            |> List.item 1
+            |> Seq.toList
+
+        let formValue =
+            formValueList.[1..8]
+            |> List.toArray
+            |> System.String
+
+        let companyInfoUrl =
+            sprintf "https://dart.fss.or.kr/dsae001/selectPopup.ax?selectKey=%s" formValue
+
+        let companyInfoDoc = HtmlDocument.Load(companyInfoUrl)
+
+        let filterCompany text =
+            Regex.IsMatch(text, @"(?:[a-zA-Z0-9.,]+$)")
+
+        let companyName =
+            companyInfoDoc.CssSelect("td")
+            |> List.map (fun a -> a.InnerText().Trim())
+            |> List.filter (fun (title) -> filterCompany (title))
+            |> List.item 1
 
         seq {
             for currentPage in 1 .. lastPage do
