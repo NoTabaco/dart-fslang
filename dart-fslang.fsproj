@@ -6,7 +6,9 @@
     <WarnOn>3390;$(WarnOn)</WarnOn>
   </PropertyGroup>
   <ItemGroup>
+  <!-- 
     <Compile Include="Scrapper/*.fsx" />
+  -->
     <Compile Include="Program.fs" />
   </ItemGroup>
   <ItemGroup>
