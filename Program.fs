@@ -33,7 +33,7 @@ let main argv =
         | _ -> lastPageList.[0..1] |> string |> int
 
     let mutable rows = []
-    // NOM, CIR, 3QR
+    // NOM, CIR, QR
     let mutable nomLink = ""
     let mutable cirLink = ""
     let mutable qrLink = ""
@@ -47,8 +47,8 @@ let main argv =
                     currentPage
 
             doc <- HtmlDocument.Load(reqUrl)
-        (*
-        // find Nom
+    (*
+        // find NOM
         if not checkData.[0] then
             let nomData =
                 doc.CssSelect("a[title^=주주총회소집결의]")
@@ -71,9 +71,54 @@ let main argv =
 
                 nomLink <- prefixURL + finalResult
                 checkData.[0] <- true
-        *)
-        if not checkData.[0] then printfn "1"
 
+        // find CIR
+        if not checkData.[1] then
+            let cirData =
+                doc.CssSelect("a[title^=주주총회소집공고]")
+                |> List.map (fun n -> n.InnerText(), n.AttributeValue("href"))
 
+            if not cirData.IsEmpty then
+                let cirToString = cirData.Item(0).ToString()
 
+                let cirURLList =
+                    cirToString.Split [| ',' |]
+                    |> Array.toList
+                    |> List.item (1)
+
+                let trimCirURL = cirURLList.Trim() |> Seq.toList
+
+                let finalResult =
+                    trimCirURL.[0..trimCirURL.Length - 2]
+                    |> List.toArray
+                    |> System.String
+
+                cirLink <- prefixURL + finalResult
+                checkData.[1] <- true
+
+        // find CIR
+        if not checkData.[2] then
+            let qrData =
+                doc.CssSelect("a[title^=분기보고서]")
+                |> List.map (fun n -> n.InnerText(), n.AttributeValue("href"))
+
+            if not qrData.IsEmpty then
+                let qrToString = qrData.Item(0).ToString()
+
+                let qrURLList =
+                    qrToString.Split [| ',' |]
+                    |> Array.toList
+                    |> List.item (1)
+
+                let trimQrURL = qrURLList.Trim() |> Seq.toList
+
+                let finalResult =
+                    trimQrURL.[0..trimQrURL.Length - 2]
+                    |> List.toArray
+                    |> System.String
+
+                qrLink <- prefixURL + finalResult
+                printfn "%s" qrLink
+                checkData.[2] <- true
+            *)
     0
