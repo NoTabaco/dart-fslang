@@ -33,6 +33,7 @@ let main argv =
         | _ -> lastPageList.[0..1] |> string |> int
 
     let mutable rows = []
+    let mutable companyName = ""
     // NOM, CIR, QR
     let mutable nomLink = ""
     let mutable cirLink = ""
@@ -70,6 +71,12 @@ let main argv =
                     |> System.String
 
                 nomLink <- prefixURL + finalResult
+
+                companyName <-
+                    doc.CssSelect("a[title$='기업개황 새창']")
+                    |> List.map (fun a -> a.InnerText().Trim())
+                    |> List.item 0
+
                 checkData.[0] <- true
 
         // find CIR
@@ -96,7 +103,7 @@ let main argv =
                 cirLink <- prefixURL + finalResult
                 checkData.[1] <- true
 
-        // find CIR
+        // find QR
         if not checkData.[2] then
             let qrData =
                 doc.CssSelect("a[title^=분기보고서]")
@@ -118,7 +125,8 @@ let main argv =
                     |> System.String
 
                 qrLink <- prefixURL + finalResult
-                printfn "%s" qrLink
                 checkData.[2] <- true
             *)
+
+
     0
