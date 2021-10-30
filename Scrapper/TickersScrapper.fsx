@@ -83,6 +83,7 @@ let scrape =
             |> List.filter (fun (title) -> filterCompany (title))
             |> List.item 1
 
+        let nowYear = (DateTime.Now).Year
         let mutable nomDate = Unchecked.defaultof<DateTime>
         let mutable cirDate = Unchecked.defaultof<DateTime>
 
@@ -136,6 +137,9 @@ let scrape =
                                 nomDate <- DateTime.Parse(listLines.[4])
                                 checkData.[3] <- true
 
+                        if nomDate.Year < nowYear then
+                            nomLink <- "Not Found"
+
                         checkData.[0] <- true
                     elif currentPage = lastPage && not checkData.[0] then
                         nomLink <- "Not Found"
@@ -161,6 +165,8 @@ let scrape =
                             |> List.toArray
                             |> String
 
+                        cirLink <- prefixURL + finalResult
+
                         let allDatas =
                             doc.CssSelect("tr > td")
                             |> List.map (fun x -> x.InnerText().Trim())
@@ -175,7 +181,9 @@ let scrape =
                                 cirDate <- DateTime.Parse(listLines.[4])
                                 checkData.[4] <- true
 
-                        cirLink <- prefixURL + finalResult
+                        if cirDate.Year < nowYear then
+                            cirLink <- "Not Found"
+
                         checkData.[1] <- true
                     elif currentPage = lastPage && not checkData.[1] then
                         cirLink <- "Not Found"
