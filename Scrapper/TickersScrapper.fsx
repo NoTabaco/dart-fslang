@@ -14,7 +14,9 @@ let scrape =
           "138690"
           "006260"
           "093050"
-          "004870" ]
+          "004870"
+          "035900"
+          "180640" ]
 
     let prefixURL = "https://dart.fss.or.kr"
 
@@ -208,7 +210,8 @@ let scrape =
                     checkData.[0] && checkData.[1] && checkData.[2]
 
                 if currentPage = lastPage || canSkip then
-                    printfn "%A %A" nomDate cirDate
+                    if nomDate > cirDate then
+                        cirLink <- "Not Found"
 
                     rows <-
                         [ CsvType.Row(companyName, nomLink, cirLink, qrLink, ticker) ]
