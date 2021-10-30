@@ -3,10 +3,11 @@ module TickersScrapper
 #r "nuget: FSharp.Data, 4.2.4"
 
 open FSharp.Data
+open System
 open System.Text.RegularExpressions
 
 type CsvType = CsvProvider<"Name,NOM Link,CIR Link,QR Link,Ticker", Separators=",", HasHeaders=true>
-
+// Regular disclosure - QR, Other disclosure - CIR, Exchange disclosure (Frequently disclosure) - NOM
 let scrape =
     let tickers =
         [ "005930"
@@ -40,14 +41,15 @@ let scrape =
             try
                 lastPageList.[1] |> string |> int
             with
-            | :? System.FormatException -> lastPageList.[0] |> string |> int
+            | :? FormatException -> lastPageList.[0] |> string |> int
             | _ -> lastPageList.[0..1] |> string |> int
 
         // NOM, CIR, QR
         let mutable nomLink = ""
         let mutable cirLink = ""
         let mutable qrLink = ""
-        let mutable checkData = [| false; false; false |]
+        // NOM, CIR, QR, NOM DATE, CIR DATE
+        let mutable checkData = [| false; false; false; false; false |]
 
         let companyNameList =
             doc.CssSelect("a[onclick^='openCorpInfoNew']")
@@ -63,9 +65,7 @@ let scrape =
             |> Seq.toList
 
         let formValue =
-            formValueList.[1..8]
-            |> List.toArray
-            |> System.String
+            formValueList.[1..8] |> List.toArray |> String
 
         let companyInfoUrl =
             sprintf "https://dart.fss.or.kr/dsae001/selectPopup.ax?selectKey=%s" formValue
@@ -80,6 +80,9 @@ let scrape =
             |> List.map (fun a -> a.InnerText().Trim())
             |> List.filter (fun (title) -> filterCompany (title))
             |> List.item 1
+
+        let mutable nomDate = Unchecked.defaultof<DateTime>
+        let mutable cirDate = Unchecked.defaultof<DateTime>
 
         seq {
             for currentPage in 1 .. lastPage do
@@ -113,9 +116,24 @@ let scrape =
                         let finalResult =
                             trimNomURL.[0..trimNomURL.Length - 2]
                             |> List.toArray
-                            |> System.String
+                            |> String
 
                         nomLink <- prefixURL + finalResult
+
+                        let allDatas =
+                            doc.CssSelect("tr > td")
+                            |> List.map (fun x -> x.InnerText().Trim())
+
+                        for index in 0 .. 6 .. allDatas.Length - 1 do
+                            let listLines = allDatas.[index..index + 5]
+
+                            if
+                                listLines.[2].Contains("주주총회소집결의")
+                                && not checkData.[3]
+                            then
+                                nomDate <- DateTime.Parse(listLines.[4])
+                                checkData.[3] <- true
+
                         checkData.[0] <- true
                     elif currentPage = lastPage && not checkData.[0] then
                         nomLink <- "Not Found"
@@ -139,7 +157,21 @@ let scrape =
                         let finalResult =
                             trimCirURL.[0..trimCirURL.Length - 2]
                             |> List.toArray
-                            |> System.String
+                            |> String
+
+                        let allDatas =
+                            doc.CssSelect("tr > td")
+                            |> List.map (fun x -> x.InnerText().Trim())
+
+                        for index in 0 .. 6 .. allDatas.Length - 1 do
+                            let listLines = allDatas.[index..index + 5]
+
+                            if
+                                listLines.[2].Contains("주주총회소집공고")
+                                && not checkData.[4]
+                            then
+                                cirDate <- DateTime.Parse(listLines.[4])
+                                checkData.[4] <- true
 
                         cirLink <- prefixURL + finalResult
                         checkData.[1] <- true
@@ -165,7 +197,7 @@ let scrape =
                         let finalResult =
                             trimQrURL.[0..trimQrURL.Length - 2]
                             |> List.toArray
-                            |> System.String
+                            |> String
 
                         qrLink <- prefixURL + finalResult
                         checkData.[2] <- true
@@ -176,6 +208,8 @@ let scrape =
                     checkData.[0] && checkData.[1] && checkData.[2]
 
                 if currentPage = lastPage || canSkip then
+                    printfn "%A %A" nomDate cirDate
+
                     rows <-
                         [ CsvType.Row(companyName, nomLink, cirLink, qrLink, ticker) ]
                         |> List.append rows
