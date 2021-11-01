@@ -1,4 +1,4 @@
-module TickersScrapper
+module TickersScraper
 
 #r "nuget: FSharp.Data, 4.2.4"
 

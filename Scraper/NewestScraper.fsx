@@ -1,4 +1,4 @@
-module NewestScrapper
+module NewestScraper
 
 #r "nuget: FSharp.Data, 4.2.4"
 
@@ -137,11 +137,42 @@ let scrape =
                 if not links.IsEmpty then
                     let mutable name, link = links.[i]
                     link <- prefixURL + link
+                    name <- name.Trim()
 
                     rows <-
                         [ CsvType.Row(companyDataArray.[i], name, link) ]
-                        |> List.distinct
                         |> List.append rows
+
+    let mutable rowLength = rows.Length - 1
+    let mutable iIndex = 0
+    // Delete duplicate
+    printfn "Checking Duplicate Data..."
+
+    for i = iIndex to rowLength do
+        if i <= rowLength then
+            let company = rows.[i].Column1
+            let name = rows.[i].Column2
+
+            if name.Contains("[기재정정]") then
+                let splitName =
+                    name.Split [| ']' |]
+                    |> Array.toList
+                    |> List.item 1
+
+                let mutable jIndex = i + 1
+
+                if jIndex = rows.Length then
+                    jIndex <- rowLength
+
+                for j = rowLength downto jIndex do
+                    let checkingName = rows.[j].Column2
+
+                    if company = rows.[j].Column1
+                       && splitName = checkingName then
+                        rows <- rows |> List.filter ((<>) rows.[j])
+                        rowLength <- rows.Length - 1
+                        jIndex <- i - 1
+                        iIndex <- i - 1
 
     printfn "Making Csv File..."
     let csv = CsvType.GetSample().Truncate(0)

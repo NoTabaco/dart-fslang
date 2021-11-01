@@ -2,6 +2,6 @@
 
 [<EntryPoint>]
 let main argv =
-    NewestScrapper.scrape
-    // TickersScrapper.scrape
+    NewestScraper.scrape
+    // TickersScraper.scrape
     0
