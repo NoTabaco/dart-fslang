@@ -1,70 +1,64 @@
-module Scrapper
+module NewestScrapper
 
 #r "nuget: FSharp.Data, 4.2.4"
+
 open FSharp.Data
+open System
+
 type CsvType = CsvProvider<"Name,Cir,CirLink", Separators=",", HasHeaders=false>
 
 let scrape =
     let now =
-        sprintf "%i.%i.%i" (System.DateTime.Now).Year (System.DateTime.Now).Month (System.DateTime.Now).Day
+        sprintf "%i.%i.%i" (DateTime.Now).Year (DateTime.Now).Month (DateTime.Now).Day
 
     let mdayCnt =
-        match (System.DateTime.Now).DayOfWeek with
-        | System.DayOfWeek.Saturday -> 1
-        | System.DayOfWeek.Sunday -> 2
+        match (DateTime.Now).DayOfWeek with
+        | DayOfWeek.Saturday -> 1
+        | DayOfWeek.Sunday -> 2
         | _ -> 0
 
     let marketDatas =
-        [ "https://dart.fss.or.kr/dsac001/mainY.do?mdayCnt="
-          + (mdayCnt |> string),
-          "Y",
-          "Securities Market",
-          mdayCnt
-          "https://dart.fss.or.kr/dsac001/mainK.do?mdayCnt="
-          + (mdayCnt |> string),
-          "K",
-          "KOSDAQ Market",
-          mdayCnt
-          "https://dart.fss.or.kr/dsac001/mainN.do?mdayCnt="
-          + (mdayCnt |> string),
-          "N",
-          "KONEX Market",
-          mdayCnt ]
-
-    let reqUrl =
-        "https://dart.fss.or.kr/dsac001/search.ax"
+        [ "Y", "Securities Market", mdayCnt
+          "K", "KOSDAQ Market", mdayCnt
+          "N", "KONEX Market", mdayCnt ]
 
     let prefixURL = "https://dart.fss.or.kr"
     let mutable rows = []
 
-    for (pageUrl, pageGroup, marketName, pastDays) in marketDatas do
-        let results = HtmlDocument.Load(pageUrl)
+    for (pageGroup, marketName, pastDays) in marketDatas do
+        let mutable reqUrl =
+            sprintf
+                "https://dart.fss.or.kr/dsac001/search.ax?pageGrouping=%s&currentPage=1&mdayCnt=%s"
+                pageGroup
+                (pastDays |> string)
 
-        let pageLinks =
-            results.Descendants [ "div" ]
-            |> Seq.choose
-                (fun x ->
-                    x.TryGetAttribute("class")
-                    |> Option.filter (fun a -> a.Value().Equals("pageInfo"))
-                    |> Option.map (fun a -> x.InnerText(), a.Value()))
-            |> Seq.toList
-            |> List.map (fun (name, _) -> name.Split [| '/' |])
+        let mutable results = HtmlDocument.Load(reqUrl)
+
+        let pageString =
+            results.CssSelect("div[class=pageInfo]")
+            |> List.map (fun n -> n.InnerText())
             |> List.item 0
 
-        let searchResults = Seq.toList pageLinks.[1]
-        let lastPage = searchResults.[0] |> string |> int
+        let lastPageList =
+            pageString.Split [| '/' |]
+            |> Array.toList
+            |> List.item 1
+            |> Seq.toList
+
+        let lastPage =
+            try
+                lastPageList.[1] |> string |> int
+            with
+            | :? FormatException -> lastPageList.[0] |> string |> int
+            | _ -> lastPageList.[0..1] |> string |> int
 
         let allResult =
-            searchResults.[4..searchResults.Length - 2]
+            lastPageList.[4..lastPageList.Length - 2]
             |> List.toArray
-            |> System.String
+            |> String
 
         let nowHeader =
-            sprintf
-                "%i.%i.%i"
-                (System.DateTime.Now).Year
-                (System.DateTime.Now).Month
-                ((System.DateTime.Now).Day - pastDays)
+            sprintf "%i.%i.%i" (DateTime.Now).Year (DateTime.Now).Month ((DateTime.Now).Day - pastDays)
 
         rows <-
             [ CsvType.Row(marketName, nowHeader, allResult) ]
@@ -73,57 +67,28 @@ let scrape =
         for page in 1 .. lastPage do
             printfn "Scrapping Dart %s: Page %i" marketName page
 
-            let req =
-                Http.RequestString(
-                    reqUrl,
-                    body =
-                        FormValues [ "selectDate", now
-                                     "currentPage", page |> string
-                                     "pageGrouping", pageGroup
-                                     "mdayCnt", pastDays |> string ]
-                )
+            if page <> 1 then
+                reqUrl <-
+                    sprintf
+                        "https://dart.fss.or.kr/dsac001/search.ax?pageGrouping=%s&currentPage=%s&mdayCnt=%s"
+                        pageGroup
+                        (page |> string)
+                        (pastDays |> string)
 
-            let reqHtml = HtmlDocument.Parse(req)
+                results <- HtmlDocument.Load(reqUrl)
 
-            let datas =
-                reqHtml.Descendants [ "tr" ]
-                |> Seq.map (fun x -> x.Descendants [ "a" ])
-                |> Seq.collect
-                    (fun x ->
-                        x
-                        |> Seq.choose
-                            (fun x ->
-                                x.TryGetAttribute("href")
-                                |> Option.map (fun a -> x.InnerText(), a.Value())))
+            let allDatas =
+                results.CssSelect("tr > td")
+                |> List.map (fun x -> x.InnerText().Trim())
 
-            let mutable companyDataArr = [||]
-            let mutable arrDatas = datas |> Seq.toArray
-            let datasLength = datas |> Seq.length
+            for index in 0 .. 6 .. allDatas.Length - 1 do
+                let listLines = allDatas.[index..index + 5]
 
-            for i in 0 .. datasLength - 1 do
-                let name, _ = arrDatas.[i]
-                let trimName = name.Trim()
+                if listLines.[2].Contains("주주총회소집결의") then
+                    printfn "%A" listLines
 
-                if
-                    trimName.Equals("주주총회소집공고")
-                    || trimName.Equals("[기재정정]주주총회소집공고")
-                then
-                    // Corporate opening information (href)
-                    let companyName, _ = arrDatas.[i - 1]
-                    let trimCompanyName = companyName.Trim()
-                    // Cir
-                    let cir, cirHref = arrDatas.[i]
-                    let trimCirName = cir.Trim()
 
-                    let companyData =
-                        [ trimCompanyName, trimCirName, prefixURL + cirHref ]
-
-                    companyDataArr <-
-                        companyData
-                        |> List.toArray
-                        |> Array.append companyDataArr
-
-            for (name, cir, cirLink) in companyDataArr do
+            for (name, cir, cirLink) in [ "1", ",", "2" ] do
                 rows <-
                     [ CsvType.Row(name, cir, cirLink) ]
                     |> List.append rows
