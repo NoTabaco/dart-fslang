@@ -7,7 +7,7 @@ open System
 open System.Text.RegularExpressions
 
 type CsvType = CsvProvider<"Name,NOM Link,CIR Link,QR Link,Ticker", Separators=",", HasHeaders=true>
-// Regular disclosure - QR, Other disclosure - CIR, Exchange disclosure (Frequently disclosure) - NOM
+
 let scrape =
     let tickers =
         [ "005930"
@@ -23,8 +23,11 @@ let scrape =
     let mutable rows = []
 
     for ticker in tickers do
+        // A001 ~ A003 QR, E006 CIR, I001 NOM
         let mutable reqUrl =
-            sprintf "https://dart.fss.or.kr/dsab001/searchCorp.ax?textCrpNm=%s&currentPage=1&maxResults=50" ticker
+            sprintf
+                "https://dart.fss.or.kr/dsab001/searchCorp.ax?textCrpNm=%s&currentPage=1&maxResults=50&publicType=A001&publicType=A002&publicType=A003&publicType=E006&publicType=I001"
+                ticker
 
         let mutable doc = HtmlDocument.Load(reqUrl)
 
@@ -94,7 +97,7 @@ let scrape =
                 if currentPage <> 1 then
                     reqUrl <-
                         sprintf
-                            "https://dart.fss.or.kr/dsab001/searchCorp.ax?textCrpNm=%s&currentPage=%i&maxResults=50"
+                            "https://dart.fss.or.kr/dsab001/searchCorp.ax?textCrpNm=%s&currentPage=%i&maxResults=50&publicType=A001&publicType=A002&publicType=A003&publicType=E006&publicType=I001"
                             ticker
                             currentPage
 
@@ -191,7 +194,7 @@ let scrape =
                 // find QR
                 if not checkData.[2] then
                     let qrData =
-                        doc.CssSelect("a[title^=분기보고서]")
+                        doc.CssSelect("a[title*='보고서 공시뷰어 새창']")
                         |> List.map (fun n -> n.InnerText(), n.AttributeValue("href"))
 
                     if not qrData.IsEmpty then
