@@ -4,13 +4,11 @@ module NewestScrapper
 
 open FSharp.Data
 open System
+open System.Text.RegularExpressions
 
-type CsvType = CsvProvider<"Name,Cir,CirLink", Separators=",", HasHeaders=false>
+type CsvType = CsvProvider<"Name,NOM - CIR,NOM Link - CIR Link", Separators=",", HasHeaders=false>
 
 let scrape =
-    let now =
-        sprintf "%i.%i.%i" (DateTime.Now).Year (DateTime.Now).Month (DateTime.Now).Day
-
     let mdayCnt =
         match (DateTime.Now).DayOfWeek with
         | DayOfWeek.Saturday -> 1
@@ -81,12 +79,52 @@ let scrape =
                 results.CssSelect("tr > td")
                 |> List.map (fun x -> x.InnerText().Trim())
 
+            // Find NOM, CIR
             for index in 0 .. 6 .. allDatas.Length - 1 do
                 let listLines = allDatas.[index..index + 5]
 
-                if listLines.[2].Contains("주주총회소집결의") then
-                    printfn "%A" listLines
+                if
+                    listLines.[2].Contains("주주총회소집결의")
+                    || listLines.[2].Contains("주주총회소집공고")
+                then
+                    // ENG Name
+                    let splitCompanyName = listLines.[1].Split [| ' ' |]
 
+                    let findingCompany =
+                        sprintf "a[title='%s 기업개황 새창']" splitCompanyName.[1]
+
+                    let companyNameList =
+                        results.CssSelect(findingCompany)
+                        |> List.map (fun a -> a.InnerText().Trim(), a.AttributeValue("href"))
+                        |> List.item 0
+
+                    let _, formValueString = companyNameList
+
+                    let formValueList =
+                        formValueString.Split [| '(' |]
+                        |> Array.toList
+                        |> List.item 1
+                        |> Seq.toList
+
+                    let formValue =
+                        formValueList.[1..8] |> List.toArray |> String
+
+                    let companyInfoUrl =
+                        sprintf "https://dart.fss.or.kr/dsae001/selectPopup.ax?selectKey=%s" formValue
+
+                    let companyInfoDoc = HtmlDocument.Load(companyInfoUrl)
+
+                    let filterCompany text =
+                        Regex.IsMatch(text, @"(?:[a-zA-Z0-9.,]+$)")
+
+                    let engCompanyName =
+                        companyInfoDoc.CssSelect("td")
+                        |> List.map (fun a -> a.InnerText().Trim())
+                        |> List.filter (fun (title) -> filterCompany (title))
+                        |> List.item 1
+
+                    // NOM, CIR LINK
+                    printfn "%s %s" engCompanyName listLines.[2]
 
             for (name, cir, cirLink) in [ "1", ",", "2" ] do
                 rows <-
