@@ -79,6 +79,7 @@ let scrape =
                 results.CssSelect("tr > td")
                 |> List.map (fun x -> x.InnerText().Trim())
 
+            let mutable companyDataArray = [||]
             // Find NOM, CIR
             for index in 0 .. 6 .. allDatas.Length - 1 do
                 let listLines = allDatas.[index..index + 5]
@@ -123,13 +124,24 @@ let scrape =
                         |> List.filter (fun (title) -> filterCompany (title))
                         |> List.item 1
 
-                    // NOM, CIR LINK
-                    printfn "%s %s" engCompanyName listLines.[2]
+                    companyDataArray <- Array.append companyDataArray [| engCompanyName |]
 
-            for (name, cir, cirLink) in [ "1", ",", "2" ] do
-                rows <-
-                    [ CsvType.Row(name, cir, cirLink) ]
-                    |> List.append rows
+            // NOM, CIR LINK
+            let links =
+                results.CssSelect("a[title^='주주총회소집']")
+                |> List.map (fun n -> n.InnerText(), n.AttributeValue("href"))
+
+            let tempLength = companyDataArray.Length - 1
+
+            for i in 0 .. tempLength do
+                if not links.IsEmpty then
+                    let mutable name, link = links.[i]
+                    link <- prefixURL + link
+
+                    rows <-
+                        [ CsvType.Row(companyDataArray.[i], name, link) ]
+                        |> List.distinct
+                        |> List.append rows
 
     printfn "Making Csv File..."
     let csv = CsvType.GetSample().Truncate(0)
