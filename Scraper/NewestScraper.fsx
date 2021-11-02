@@ -79,7 +79,7 @@ let scrape =
                 results.CssSelect("tr > td")
                 |> List.map (fun x -> x.InnerText().Trim())
 
-            let mutable companyDataArray = [||]
+            let mutable companyDataArray = []
             // Find NOM, CIR
             for index in 0 .. 6 .. allDatas.Length - 1 do
                 let listLines = allDatas.[index..index + 5]
@@ -124,17 +124,17 @@ let scrape =
                         |> List.filter (fun (title) -> filterCompany (title))
                         |> List.item 1
 
-                    companyDataArray <- Array.append companyDataArray [| engCompanyName |]
+                    companyDataArray <- List.append companyDataArray [ engCompanyName ]
 
             // NOM, CIR LINK
-            let links =
-                results.CssSelect("a[title^='주주총회소집']")
-                |> List.map (fun n -> n.InnerText(), n.AttributeValue("href"))
+            if not companyDataArray.IsEmpty then
+                let links =
+                    results.CssSelect("a[title^='주주총회소집']")
+                    |> List.map (fun n -> n.InnerText(), n.AttributeValue("href"))
 
-            let tempLength = companyDataArray.Length - 1
+                let tempLength = companyDataArray.Length - 1
 
-            for i in 0 .. tempLength do
-                if not links.IsEmpty then
+                for i in 0 .. tempLength do
                     let mutable name, link = links.[i]
                     link <- prefixURL + link
                     name <- name.Trim()
@@ -144,11 +144,10 @@ let scrape =
                         |> List.append rows
 
     let mutable rowLength = rows.Length - 1
-    let mutable iIndex = 0
     // Delete duplicate
     printfn "Checking Duplicate Data..."
 
-    for i = iIndex to rowLength do
+    for i = 0 to rowLength do
         if i <= rowLength then
             let company = rows.[i].Column1
             let name = rows.[i].Column2
@@ -160,19 +159,18 @@ let scrape =
                     |> List.item 1
 
                 let mutable jIndex = i + 1
+                // Max Index, Execute only if not Last Row
+                if jIndex <> rows.Length then
+                    for j = rowLength downto jIndex do
+                        let checkingName = rows.[j].Column2
 
-                if jIndex = rows.Length then
-                    jIndex <- rowLength
-
-                for j = rowLength downto jIndex do
-                    let checkingName = rows.[j].Column2
-
-                    if company = rows.[j].Column1
-                       && splitName = checkingName then
-                        rows <- rows |> List.filter ((<>) rows.[j])
-                        rowLength <- rows.Length - 1
-                        jIndex <- i - 1
-                        iIndex <- i - 1
+                        if
+                            company = rows.[j].Column1
+                            && splitName.Contains(checkingName)
+                        then
+                            rows <- rows |> List.filter ((<>) rows.[j])
+                            rowLength <- rows.Length - 1
+                            jIndex <- i - 1
 
     printfn "Making Csv File..."
     let csv = CsvType.GetSample().Truncate(0)
